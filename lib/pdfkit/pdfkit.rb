@@ -1,4 +1,5 @@
 require 'shellwords'
+require 'rbconfig'
 
 class PDFKit
 
@@ -66,7 +67,7 @@ class PDFKit
     result = IO.popen(invoke, "wb+") do |pdf|
       pdf.puts(@source.to_s) if @source.html?
       pdf.close_write
-      pdf.gets(nil)
+      wait_for_wkhtmltopdf_process(pdf)
     end
     result = File.read(path) if path
 
@@ -81,6 +82,16 @@ class PDFKit
   end
 
   protected
+
+    def wait_for_wkhtmltopdf_process(pdf)
+      # 0.10.0 and 0.11.0_rc2 have a problem terminating on OSX
+      if RbConfig[:host_os] =~ /mac|darwin/
+        if until pdf.gets =~ /^Done\./ end
+        Process.kill 'INT', pdf.pid
+      else
+        pdf.gets(nil)
+      end
+    end
 
     def find_options_in_meta(content)
       # Read file if content is a File
