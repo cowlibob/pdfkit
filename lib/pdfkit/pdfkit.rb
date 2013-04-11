@@ -1,5 +1,6 @@
 require 'shellwords'
 require 'rbconfig'
+require 'open3'
 
 class PDFKit
 
@@ -35,7 +36,7 @@ class PDFKit
   def command(path = nil)
     args = [executable]
     args += @options.to_a.flatten.compact
-    args << '--quiet'
+    #args << '--quiet'
 
     if @source.html?
       args << '-' # Get HTML from stdin
@@ -64,10 +65,10 @@ class PDFKit
     args = command(path)
     invoke = args.join(' ')
 
-    result = IO.popen(invoke, "wb+") do |pdf|
-      pdf.puts(@source.to_s) if @source.html?
-      pdf.close_write
-      wait_for_wkhtmltopdf_process(pdf)
+    result = Open3.popen2e(invoke) do |pdf_in, pdf_out_err, wait_thr|
+      pdf_in.puts(@source.to_s) if @source.html?
+      pdf_in.close
+      wait_for_wkhtmltopdf_process(pdf_out_err, wait_thr)
     end
     result = File.read(path) if path
 
@@ -83,11 +84,16 @@ class PDFKit
 
   protected
 
-    def wait_for_wkhtmltopdf_process(pdf)
+    def wait_for_wkhtmltopdf_process(pdf_out_err, wait_thr)
       # 0.10.0 and 0.11.0_rc2 have a problem terminating on OSX
-      if RbConfig[:host_os] =~ /mac|darwin/
-        until pdf.gets =~ /^Done\./ end
-        Process.kill 'INT', pdf.pid
+      if RbConfig::CONFIG['host_os'] =~ /mac|darwin/
+        pdf_out_err.each do |line|
+          # STDOUT.puts line
+          if line =~ /\rDone/
+            Process.kill('INT', wait_thr.pid) 
+            break
+          end
+        end
       else
         pdf.gets(nil)
       end
