@@ -86,7 +86,7 @@ class PDFKit
     def wait_for_wkhtmltopdf_process(pdf)
       # 0.10.0 and 0.11.0_rc2 have a problem terminating on OSX
       if RbConfig[:host_os] =~ /mac|darwin/
-        if until pdf.gets =~ /^Done\./ end
+        until pdf.gets =~ /^Done\./ end
         Process.kill 'INT', pdf.pid
       else
         pdf.gets(nil)
