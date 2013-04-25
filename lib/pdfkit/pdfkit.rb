@@ -95,7 +95,7 @@ class PDFKit
           end
         end
       else
-        pdf.gets(nil)
+        pdf_out_err.gets(nil)
       end
     end
 
